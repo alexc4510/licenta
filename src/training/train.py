@@ -108,7 +108,7 @@ def main():
 
     train_loader, val_loader, _ = get_dataloaders(
         "datasets/ai_vs_human",
-        batch_size=32
+        batch_size=64
     )
 
     model = get_resnet(num_classes=2).to(device)
