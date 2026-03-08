@@ -1,0 +1,7 @@
+venv/
+datasets/
+raw_data/
+checkpoints/
+__pycache__/
+*.pyc
+.DS_Store
