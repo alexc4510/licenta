@@ -117,7 +117,7 @@ def main():
 
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-    epochs = 15
+    epochs = 8
     max_batches = None
 
     history = {
