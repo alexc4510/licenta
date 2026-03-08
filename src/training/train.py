@@ -103,8 +103,10 @@ def main():
     os.makedirs("checkpoints", exist_ok=True)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
     print("Device:", device)
+
+    if device == "cuda":
+        torch.backends.cudnn.benchmark = True
 
     train_loader, val_loader, _ = get_dataloaders(
         "datasets/ai_vs_human",
@@ -117,7 +119,7 @@ def main():
 
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-    epochs = 8
+    epochs = 5
     max_batches = None
 
     history = {
@@ -167,6 +169,13 @@ def main():
         history["train_acc"].append(train_acc)
         history["val_loss"].append(val_loss)
         history["val_acc"].append(val_acc)
+
+        torch.save(
+            model.state_dict(),
+            f"checkpoints/resnet_epoch_{epoch+1}.pth"
+        )
+
+
 
     model_path = "checkpoints/resnet_baseline.pth"
 
