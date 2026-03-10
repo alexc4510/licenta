@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import time
 
-from src.models.resnet import get_resnet
+from src.models.resnet18 import get_resnet18
 from src.data.dataset import get_dataloaders
 
 
@@ -106,11 +106,11 @@ def main():
         "datasets/ai_vs_human",
         batch_size=64
     )
-
+    
     if device == "cuda":
         torch.backends.cudnn.benchmark = True
 
-    model = get_resnet(num_classes=2).to(device)
+    model = get_resnet18(num_classes=2).to(device)
 
     criterion = nn.CrossEntropyLoss()
 
@@ -139,7 +139,7 @@ def main():
             train_loader,
             criterion,
             optimizer,
-            device,
+            device
         )
 
         val_loss, val_acc = evaluate(
@@ -167,10 +167,10 @@ def main():
 
         torch.save(
             model.state_dict(),
-            f"checkpoints/resnet_epoch_{epoch+1}.pth"
+            f"checkpoints/resnet18_epoch_{epoch+1}.pth"
         )
 
-    model_path = "checkpoints/resnet_baseline.pth"
+    model_path = "checkpoints/resnet18_baseline.pth"
 
     torch.save(model.state_dict(), model_path)
 
@@ -178,7 +178,7 @@ def main():
 
     df = pd.DataFrame(history)
 
-    csv_path = "logs/training_metrics.csv"
+    csv_path = "logs/resnet18_training_metrics.csv"
 
     df.to_csv(csv_path, index=False)
 
@@ -192,11 +192,11 @@ def main():
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
 
-    plt.title("Training vs Validation Loss")
+    plt.title("ResNet18 Training vs Validation Loss")
 
     plt.legend()
 
-    plt.savefig("logs/loss_curve.png")
+    plt.savefig("logs/resnet18_loss_curve.png")
 
     plt.figure()
 
@@ -206,11 +206,11 @@ def main():
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
 
-    plt.title("Training vs Validation Accuracy")
+    plt.title("ResNet18 Training vs Validation Accuracy")
 
     plt.legend()
 
-    plt.savefig("logs/accuracy_curve.png")
+    plt.savefig("logs/resnet18_accuracy_curve.png")
 
     print("Plots saved in logs/")
 
