@@ -76,7 +76,7 @@ def main():
         "f1":[f1]
     })
 
-    metrics_path = "metrics/test_metrics.csv"
+    metrics_path = "metrics/test_metrics_resnet18.csv"
     metrics.to_csv(metrics_path, index=False)
 
     print("\nMetrics saved:", metrics_path)
@@ -90,7 +90,7 @@ def main():
     plt.ylabel("Actual")
     plt.title("Confusion Matrix")
 
-    cm_path = "metrics/confusion_matrix.png"
+    cm_path = "metrics/confusion_matrix_resnet18.png"
     plt.savefig(cm_path)
 
     print("Confusion matrix saved:", cm_path)
