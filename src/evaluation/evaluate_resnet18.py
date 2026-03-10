@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 import seaborn as sns
 
-from src.models.resnet import get_resnet
+from src.models.resnet18 import get_resnet18
 from src.data.dataset import get_dataloaders
 
 
@@ -47,7 +47,7 @@ def main():
         batch_size=64
     )
 
-    model = get_resnet(num_classes=2).to(device)
+    model = get_resnet18(num_classes=2).to(device)
 
     checkpoint_path = "checkpoints/resnet18_epoch_3.pth"
 
