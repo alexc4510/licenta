@@ -1,8 +1,10 @@
 import torch.nn as nn
 from torchvision import models
 
+from src.config import NUM_CLASSES
 
-def get_resnet18(num_classes=2):
+
+def get_resnet18(num_classes=NUM_CLASSES):
 
     model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
 

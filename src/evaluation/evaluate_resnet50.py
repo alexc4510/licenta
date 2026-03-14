@@ -6,8 +6,11 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 import seaborn as sns
 
-from src.models.resnet import get_resnet
+from src.models.resnet50 import get_resnet50
 from src.data.dataset import get_dataloaders
+from src.config import DATASET_NAME, DATASETS, BATCH_SIZE, NUM_CLASSES
+
+data_dir = DATASETS[DATASET_NAME]
 
 
 def evaluate(model, loader, device):
@@ -43,11 +46,11 @@ def main():
     print("Device:", device)
 
     _, _, test_loader = get_dataloaders(
-        "datasets/ai_vs_human",
-        batch_size=64
+        data_dir,
+        batch_size=BATCH_SIZE
     )
 
-    model = get_resnet(num_classes=2).to(device)
+    model = get_resnet50(num_classes=NUM_CLASSES).to(device)
 
     checkpoint_path = "checkpoints/resnet_epoch_4.pth"
 

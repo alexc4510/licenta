@@ -6,9 +6,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import time
 
-from src.models.resnet import get_resnet
+from models.resnet50 import get_resnet50
 from src.data.dataset import get_dataloaders
+from src.config import DATASET_NAME, DATASETS, BATCH_SIZE, EPOCHS, NUM_CLASSES
 
+data_dir = DATASETS[DATASET_NAME]
 
 def train_epoch(model, loader, criterion, optimizer, device):
 
@@ -103,20 +105,20 @@ def main():
     print("Device:", device)
 
     train_loader, val_loader, _ = get_dataloaders(
-        "datasets/ai_vs_human",
-        batch_size=64
+        data_dir,
+        batch_size=BATCH_SIZE
     )
 
     if device == "cuda":
         torch.backends.cudnn.benchmark = True
 
-    model = get_resnet(num_classes=2).to(device)
+    model = get_resnet50(num_classes=NUM_CLASSES).to(device)
 
     criterion = nn.CrossEntropyLoss()
 
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-    epochs = 5
+    epochs = EPOCHS
 
     history = {
         "epoch": [],
