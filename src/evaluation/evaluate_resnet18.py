@@ -1,102 +1,65 @@
-import torch
-import numpy as np
-import pandas as pd
+# src/evaluation/evaluate_resnet18.py
+"""
+Evaluate the best ResNet-18 checkpoint on a single dataset's test split.
+
+Usage (from project root):
+    python -m src.evaluation.evaluate_resnet18 --dataset dataset_b
+    python -m src.evaluation.evaluate_resnet18 --dataset ai_vs_human
+"""
+
+from __future__ import annotations
+
+import argparse
 import os
-import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
-import seaborn as sns
 
-from src.models.resnet18 import get_resnet18
+import torch
+from google.colab import drive
+
+from src.config import BATCH_SIZE, CHECKPOINTS_ROOT, DATASETS, LOGS_ROOT, NUM_CLASSES
 from src.data.dataset import get_dataloaders
-from src.config import DATASET_NAME, DATASETS, BATCH_SIZE, NUM_CLASSES
+from src.evaluation._common import run_inference, save_single_eval
+from src.models.resnet18 import get_resnet18
+from src.training._common import find_best_checkpoint
 
-data_dir = DATASETS[DATASET_NAME]
-
-
-def evaluate(model, loader, device):
-
-    model.eval()
-
-    all_preds = []
-    all_labels = []
-
-    with torch.no_grad():
-
-        for images, labels in loader:
-
-            images = images.to(device)
-            labels = labels.to(device)
-
-            outputs = model(images)
-
-            preds = outputs.argmax(dim=1)
-
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-
-    return np.array(all_preds), np.array(all_labels)
+MODEL_NAME = "resnet18"
 
 
-def main():
+def _mount_drive() -> None:
+    if not os.path.isdir("/content/drive/MyDrive"):
+        drive.mount("/content/drive")
 
-    os.makedirs("metrics", exist_ok=True)
+
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument("--dataset",     default="dataset_b", choices=list(DATASETS))
+    p.add_argument("--batch_size",  type=int, default=BATCH_SIZE)
+    p.add_argument("--not_resized", action="store_true")
+    return p.parse_args()
+
+
+def main() -> None:
+    args = _parse_args()
+    _mount_drive()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    print("Device:", device)
+    print(f"Device={device}  |  model={MODEL_NAME}  |  dataset={args.dataset}")
 
     _, _, test_loader = get_dataloaders(
-        data_dir,
-        batch_size=BATCH_SIZE
+        DATASETS[args.dataset],
+        batch_size=args.batch_size,
+        already_resized=not args.not_resized,
     )
 
-    model = get_resnet18(num_classes=NUM_CLASSES).to(device)
+    model     = get_resnet18(num_classes=NUM_CLASSES).to(device)
+    ckpt_dir  = os.path.join(CHECKPOINTS_ROOT, args.dataset, MODEL_NAME)
+    best_ckpt = find_best_checkpoint(ckpt_dir, MODEL_NAME)
+    ckpt      = torch.load(best_ckpt, map_location=device, weights_only=True)
+    model.load_state_dict(ckpt["model_state_dict"])
+    print(f"  Loaded epoch={ckpt['epoch']}  val_acc={ckpt['val_acc']:.4f}")
 
-    checkpoint_path = "checkpoints/resnet18_epoch_3.pth"
-
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-
-    print("Loaded checkpoint:", checkpoint_path)
-
-    preds, labels = evaluate(model, test_loader, device)
-
-    acc = accuracy_score(labels, preds)
-    precision = precision_score(labels, preds)
-    recall = recall_score(labels, preds)
-    f1 = f1_score(labels, preds)
-
-    print("\nTest Metrics")
-    print("---------------------")
-    print("Accuracy :", acc)
-    print("Precision:", precision)
-    print("Recall   :", recall)
-    print("F1 Score :", f1)
-
-    metrics = pd.DataFrame({
-        "accuracy":[acc],
-        "precision":[precision],
-        "recall":[recall],
-        "f1":[f1]
-    })
-
-    metrics_path = "metrics/test_metrics_resnet18.csv"
-    metrics.to_csv(metrics_path, index=False)
-
-    print("\nMetrics saved:", metrics_path)
-
-    cm = confusion_matrix(labels, preds)
-
-    plt.figure(figsize=(6,5))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    plt.title("Confusion Matrix")
-
-    cm_path = "metrics/confusion_matrix_resnet18.png"
-    plt.savefig(cm_path)
-
-    print("Confusion matrix saved:", cm_path)
+    preds, labels = run_inference(model, test_loader, device)
+    metrics_dir   = os.path.join(LOGS_ROOT, args.dataset, MODEL_NAME)
+    save_single_eval(preds, labels, metrics_dir, MODEL_NAME, args.dataset)
 
 
 if __name__ == "__main__":
