@@ -20,6 +20,38 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 
+# ── Class weights ─────────────────────────────────────────────────────────────
+
+def compute_class_weights(
+    train_loader: DataLoader,
+    num_classes: int,
+    device: str,
+) -> torch.Tensor:
+    """
+    Compute inverse-frequency class weights from the training set.
+
+    Formula:  weight[i] = total_samples / (num_classes * count[i])
+
+    For a balanced dataset all weights come out to 1.0 — no effect on loss.
+    For an imbalanced dataset minority classes get higher weights, penalising
+    the model more for misclassifying them.
+
+    Works with any ImageFolder-based DataLoader via .dataset.targets.
+    Prints a per-class breakdown so the values are always visible in the log.
+    """
+    targets      = torch.tensor(train_loader.dataset.targets)
+    total        = len(targets)
+    weights      = torch.zeros(num_classes)
+    idx_to_class = {v: k for k, v in train_loader.dataset.class_to_idx.items()}
+
+    for c in range(num_classes):
+        count      = (targets == c).sum().item()
+        weights[c] = total / (num_classes * count) if count > 0 else 1.0
+        print(f"  class '{idx_to_class[c]}' (idx={c}): count={count}  weight={weights[c]:.4f}")
+
+    return weights.to(device)
+
+
 # ── Training loop ─────────────────────────────────────────────────────────────
 
 def train_epoch(
@@ -103,9 +135,9 @@ def save_checkpoint(
 
     File format:  <model_name>_epoch_<NN>.pth
     Stored dict:
-        epoch               int
-        val_acc             float
-        model_state_dict    OrderedDict
+        epoch                int
+        val_acc              float
+        model_state_dict     OrderedDict
         optimizer_state_dict OrderedDict
     """
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -124,8 +156,8 @@ def save_checkpoint(
 
 def find_best_checkpoint(checkpoint_dir: str, model_name: str) -> str:
     """
-    Scan *checkpoint_dir* for files matching ``<model_name>_epoch_*.pth``,
-    read the ``val_acc`` stored inside each, and return the path of the
+    Scan *checkpoint_dir* for files matching <model_name>_epoch_*.pth,
+    read the val_acc stored inside each, and return the path of the
     checkpoint with the highest validation accuracy.
 
     Raises FileNotFoundError if no valid checkpoints are found.

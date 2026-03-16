@@ -23,7 +23,7 @@ from src.config import BATCH_SIZE, CHECKPOINTS_ROOT, DATASETS, EPOCHS, LOGS_ROOT
 from src.data.dataset import get_dataloaders
 from src.models.resnet50 import get_resnet50
 from src.training._common import (
-    eval_epoch, find_best_checkpoint, save_checkpoint,
+    compute_class_weights, eval_epoch, save_checkpoint,
     save_training_artifacts, train_epoch,
 )
 
@@ -69,7 +69,8 @@ def main() -> None:
     )
 
     model     = get_resnet50(num_classes=NUM_CLASSES).to(device)
-    criterion = nn.CrossEntropyLoss()
+    weights   = compute_class_weights(train_loader, NUM_CLASSES, device)
+    criterion = nn.CrossEntropyLoss(weight=weights)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     history        = {"epoch": [], "train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
@@ -89,7 +90,7 @@ def main() -> None:
             f"\n  Summary | "
             f"train_loss={train_loss:.4f}  train_acc={train_acc:.4f} | "
             f"val_loss={val_loss:.4f}  val_acc={val_acc:.4f} | "
-            f"time={( time.time()-t0)/60:.1f}min"
+            f"time={(time.time()-t0)/60:.1f}min"
         )
 
         history["epoch"].append(epoch)

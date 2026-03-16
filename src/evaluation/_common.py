@@ -18,8 +18,8 @@ import seaborn as sns
 import torch
 import torch.nn as nn
 from sklearn.metrics import (
-    accuracy_score, confusion_matrix, f1_score,
-    precision_score, recall_score,
+    accuracy_score, classification_report, confusion_matrix,
+    f1_score, precision_score, recall_score,
 )
 from torch.utils.data import DataLoader
 
@@ -53,12 +53,18 @@ def compute_metrics(
     preds: np.ndarray,
     labels: np.ndarray,
 ) -> dict[str, float]:
-    """Return a dict with accuracy, precision, recall and f1."""
+    """
+    Return accuracy, precision, recall and f1.
+
+    Uses average="macro" — computes each metric per class then averages.
+    This gives a balanced view regardless of class imbalance and is not
+    affected by which class happens to be label 0 or label 1.
+    """
     return {
         "accuracy":  accuracy_score(labels, preds),
-        "precision": precision_score(labels, preds, average="binary", zero_division=0),
-        "recall":    recall_score(   labels, preds, average="binary", zero_division=0),
-        "f1":        f1_score(       labels, preds, average="binary", zero_division=0),
+        "precision": precision_score(labels, preds, average="macro", zero_division=0),
+        "recall":    recall_score(   labels, preds, average="macro", zero_division=0),
+        "f1":        f1_score(       labels, preds, average="macro", zero_division=0),
     }
 
 
@@ -84,12 +90,20 @@ def save_single_eval(
     class_names: list[str] | None = None,
 ) -> dict[str, float]:
     """
-    Compute metrics, save CSV + confusion-matrix PNG to *metrics_dir*.
-    Returns the metrics dict.
+    Compute metrics, save CSV + confusion-matrix PNG + classification report
+    to *metrics_dir*.  Returns the metrics dict.
     """
     os.makedirs(metrics_dir, exist_ok=True)
+
+    # class_names follows ImageFolder alphabetical order: ai=0, real=1
+    ticks = class_names or ["ai", "real"]
+
     m = compute_metrics(preds, labels)
     print_metrics(m, model_name, dataset_name, dataset_name)
+
+    # Per-class breakdown — useful for diagnosing imbalance issues
+    print(f"\n  Per-class report:")
+    print(classification_report(labels, preds, target_names=ticks, zero_division=0))
 
     # CSV
     csv_path = os.path.join(metrics_dir, f"{model_name}_test_metrics.csv")
@@ -97,12 +111,12 @@ def save_single_eval(
     print(f"  Metrics → {csv_path}")
 
     # Confusion matrix
-    ticks = class_names or ["ai", "real"]
-    cm    = confusion_matrix(labels, preds)
+    cm = confusion_matrix(labels, preds)
     fig, ax = plt.subplots(figsize=(5, 4))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=ticks, yticklabels=ticks, ax=ax)
-    ax.set_xlabel("Predicted"); ax.set_ylabel("Actual")
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
     ax.set_title(f"{model_name} — {dataset_name}")
     cm_path = os.path.join(metrics_dir, f"{model_name}_confusion_matrix.png")
     fig.savefig(cm_path, dpi=120, bbox_inches="tight")

@@ -23,7 +23,7 @@ from src.config import BATCH_SIZE, CHECKPOINTS_ROOT, DATASETS, EPOCHS, LOGS_ROOT
 from src.data.dataset import get_dataloaders
 from src.models.resnet18 import get_resnet18
 from src.training._common import (
-    eval_epoch, find_best_checkpoint, save_checkpoint,
+    compute_class_weights, eval_epoch, save_checkpoint,
     save_training_artifacts, train_epoch,
 )
 
@@ -69,7 +69,8 @@ def main() -> None:
     )
 
     model     = get_resnet18(num_classes=NUM_CLASSES).to(device)
-    criterion = nn.CrossEntropyLoss()
+    weights   = compute_class_weights(train_loader, NUM_CLASSES, device)
+    criterion = nn.CrossEntropyLoss(weight=weights)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     history        = {"epoch": [], "train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
