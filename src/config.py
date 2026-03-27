@@ -14,8 +14,8 @@ DRIVE_ROOT = "/content/drive/MyDrive/licenta"
 
 DATASETS: dict[str, str] = {
     "ai_vs_human": os.path.join(DRIVE_ROOT, "datasets", "ai_vs_human"),
-    "dataset_b":   os.path.join(DRIVE_ROOT, "datasets", "dataset_b"),
-    # "dataset_c": os.path.join(DRIVE_ROOT, "datasets", "dataset_c"),
+    "dataset_b": os.path.join(DRIVE_ROOT, "datasets", "dataset_b"),
+    "dataset_c": os.path.join(DRIVE_ROOT, "datasets", "dataset_c"),
 }
 
 # ── Persistent output roots ───────────────────────────────────────────────────
