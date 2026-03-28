@@ -278,7 +278,8 @@ def main() -> None:
         already_resized=not args.not_resized,
         device=device,
     )
-    output_dir = os.path.join(LOGS_ROOT, "cross_dataset_matrix", args.model)
+    n = len(DATASETS)
+    output_dir = os.path.join(LOGS_ROOT, "cross_dataset_matrix", args.model, f"{n}x{n}")
     save_matrix_outputs(matrices, output_dir, args.model)
 
     print(f"\n{'═'*60}")
