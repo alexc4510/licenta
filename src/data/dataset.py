@@ -73,6 +73,7 @@ def get_dataloaders(
         num_workers=nw,
         pin_memory=True,
         persistent_workers=(nw > 0),
+        prefetch_factor=2 if nw > 0 else None,
     )
     train_loader = DataLoader(train_ds, shuffle=True,  **loader_kwargs)
     val_loader   = DataLoader(val_ds,   shuffle=False, **loader_kwargs)

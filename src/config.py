@@ -28,7 +28,7 @@ LOGS_ROOT        = os.path.join(DRIVE_ROOT, "logs")
 # ── Training hyper-parameters ─────────────────────────────────────────────────
 
 IMAGE_SIZE  = 224
-BATCH_SIZE  = 64
+BATCH_SIZE  = 128
 EPOCHS      = 5
 NUM_CLASSES = 2
 

@@ -55,6 +55,11 @@ def _register_models() -> None:
     from src.models.resnet18 import get_resnet18
     _MODEL_REGISTRY["resnet50"] = get_resnet50
     _MODEL_REGISTRY["resnet18"] = get_resnet18
+    try:
+        from src.models.vit import get_vit
+        _MODEL_REGISTRY["vit"] = get_vit
+    except ImportError:
+        pass  # vit.py not yet created — silently skip
 
 
 def _mount_drive() -> None:
@@ -65,7 +70,7 @@ def _mount_drive() -> None:
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Cross-dataset evaluation matrix")
     p.add_argument(
-        "--model", required=True, choices=["resnet50", "resnet18"],
+        "--model", required=True, choices=["resnet50", "resnet18", "vit"],
         help="Model architecture to evaluate",
     )
     p.add_argument("--batch_size", type=int, default=BATCH_SIZE)
@@ -269,6 +274,8 @@ def main() -> None:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"\nDevice={device}  |  model={args.model}")
+    if device == "cuda":
+        torch.backends.cudnn.benchmark = True
     print(f"Datasets in scope: {list(DATASETS.keys())}")
     print(f"Checkpoint root:   {CHECKPOINTS_ROOT}")
 

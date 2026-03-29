@@ -23,8 +23,8 @@ from src.config import BATCH_SIZE, CHECKPOINTS_ROOT, DATASETS, EPOCHS, LOGS_ROOT
 from src.data.dataset import get_dataloaders
 from src.models.resnet50 import get_resnet50
 from src.training._common import (
-    compute_class_weights, eval_epoch, save_checkpoint,
-    save_training_artifacts, train_epoch,
+    compute_class_weights, eval_epoch, load_latest_checkpoint,
+    save_checkpoint, save_training_artifacts, train_epoch,
 )
 
 MODEL_NAME = "resnet50"
@@ -43,6 +43,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--not_resized", action="store_true",
         help="Images on disk are NOT pre-resized to 224 — apply Resize+CenterCrop at load time",
+    )
+    p.add_argument(
+        "--resume", action="store_true",
+        help="Resume training from the latest checkpoint in the checkpoint directory",
     )
     return p.parse_args()
 
@@ -73,11 +77,15 @@ def main() -> None:
     criterion = nn.CrossEntropyLoss(weight=weights)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
+    start_epoch = 1
+    if args.resume:
+        start_epoch = load_latest_checkpoint(checkpoint_dir, MODEL_NAME, model, optimizer, device)
+
     history        = {"epoch": [], "train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
     best_val_acc   = -1.0
     best_ckpt_path = ""
 
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(start_epoch, args.epochs + 1):
         print(f"\n{'=' * 55}")
         print(f"  Epoch {epoch}/{args.epochs}  [{MODEL_NAME} | {args.dataset}]")
         print(f"{'=' * 55}")

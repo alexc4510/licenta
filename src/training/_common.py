@@ -190,7 +190,35 @@ def find_best_checkpoint(checkpoint_dir: str, model_name: str) -> str:
     return str(best_path)
 
 
-# ── Training artifacts ────────────────────────────────────────────────────────
+def load_latest_checkpoint(
+    checkpoint_dir: str,
+    model_name: str,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    device: str,
+) -> int:
+    """
+    Load the most recently saved checkpoint (highest epoch number) from
+    *checkpoint_dir* into *model* and *optimizer*.
+    Returns the epoch number to resume from (last completed epoch + 1).
+    Returns 1 if no checkpoint is found (fresh start).
+    """
+    candidates = sorted(Path(checkpoint_dir).glob(f"{model_name}_epoch_*.pth"))
+    if not candidates:
+        print("  No checkpoint found — starting from scratch.")
+        return 1
+
+    latest = candidates[-1]
+    try:
+        ckpt = torch.load(latest, map_location=device, weights_only=True)
+        model.load_state_dict(ckpt["model_state_dict"])
+        optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        epoch = int(ckpt["epoch"])
+        print(f"  Resumed from: {latest.name}  (epoch={epoch}  val_acc={ckpt.get('val_acc', float('nan')):.4f})")
+        return epoch + 1
+    except Exception as exc:
+        print(f"  [warn] Could not load checkpoint {latest.name}: {exc} — starting from scratch.")
+        return 1
 
 def save_training_artifacts(
     history: dict[str, list[Any]],

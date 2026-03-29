@@ -43,6 +43,8 @@ def main() -> None:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device={device}  |  model={MODEL_NAME}  |  dataset={args.dataset}")
+    if device == "cuda":
+        torch.backends.cudnn.benchmark = True
 
     _, _, test_loader = get_dataloaders(
         DATASETS[args.dataset],
@@ -59,7 +61,10 @@ def main() -> None:
 
     preds, labels = run_inference(model, test_loader, device)
     metrics_dir   = os.path.join(LOGS_ROOT, args.dataset, MODEL_NAME)
-    save_single_eval(preds, labels, metrics_dir, MODEL_NAME, args.dataset)
+    # derive class names in label-index order from the loader
+    idx_to_class  = {v: k for k, v in test_loader.dataset.class_to_idx.items()}
+    class_names   = [idx_to_class[i] for i in range(len(idx_to_class))]
+    save_single_eval(preds, labels, metrics_dir, MODEL_NAME, args.dataset, class_names=class_names)
 
 
 if __name__ == "__main__":
