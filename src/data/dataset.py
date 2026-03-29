@@ -104,4 +104,5 @@ def get_test_loader(
     return DataLoader(
         test_ds, batch_size=batch_size, shuffle=False,
         num_workers=nw, pin_memory=True, persistent_workers=(nw > 0),
+        prefetch_factor=2 if nw > 0 else None,
     )
