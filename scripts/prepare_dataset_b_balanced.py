@@ -71,7 +71,7 @@ def _mount_drive() -> None:
 
 
 def _make_dirs() -> None:
-    for split in ["train", "val", "test", "test_balanced"]:
+    for split in ["train", "val", "test_balanced"]:
         for label in ["ai", "real"]:
             os.makedirs(os.path.join(DST_DIR, split, label), exist_ok=True)
 
@@ -226,13 +226,6 @@ def main() -> None:
         ai_per_generator=TARGETS["val"]["ai_per_generator"],
     )
 
-    # ── Test (original — full copy, unchanged) ────────────────────────────────
-    _copy_full_split(
-        records,
-        hf_split="test",
-        dst_split="test",
-    )
-
     # ── Test (balanced) ───────────────────────────────────────────────────────
     _process_split(
         records,
@@ -245,7 +238,7 @@ def main() -> None:
     # ── Summary ───────────────────────────────────────────────────────────────
     print(f"\n{'═'*60}")
     print("DONE. Final counts:")
-    for split in ["train", "val", "test", "test_balanced"]:
+    for split in ["train", "val", "test_balanced"]:
         for label in ["ai", "real"]:
             folder = os.path.join(DST_DIR, split, label)
             count  = len(list(Path(folder).glob("*.png"))) if os.path.isdir(folder) else 0
