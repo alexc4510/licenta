@@ -8,14 +8,14 @@ DRIVE_ROOT = "/content/drive/MyDrive/licenta"
 
 # ── Datasets ──────────────────────────────────────────────────────────────────
 # Keys are the canonical dataset identifiers used everywhere in the codebase.
-# To add dataset_c later: add one entry here and run the download/prepare
-# scripts — everything else (training, evaluation, matrix) picks it up
-# automatically.
+# To add a new dataset: add one entry here and run the appropriate download/prepare
+# scripts — everything else (training, evaluation, matrix) picks it up automatically.
 
 DATASETS: dict[str, str] = {
-    "ai_vs_human": os.path.join(DRIVE_ROOT, "datasets", "ai_vs_human"),
-    "dataset_b": os.path.join(DRIVE_ROOT, "datasets", "dataset_b"),
-    "dataset_c": os.path.join(DRIVE_ROOT, "datasets", "dataset_c"),
+    "ai_vs_human":       os.path.join(DRIVE_ROOT, "datasets", "ai_vs_human"),
+    "dataset_b":         os.path.join(DRIVE_ROOT, "datasets", "dataset_b"),
+    "dataset_c":         os.path.join(DRIVE_ROOT, "datasets", "dataset_c"),
+    "dataset_b_balanced": os.path.join(DRIVE_ROOT, "datasets", "dataset_b_balanced"),
 }
 
 # ── Persistent output roots ───────────────────────────────────────────────────

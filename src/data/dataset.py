@@ -92,15 +92,20 @@ def get_test_loader(
     batch_size: int = 32,
     already_resized: bool = True,
     num_workers: int | None = None,
+    test_split: str = "test",
 ) -> DataLoader:
     """
     Convenience function that returns only the test DataLoader.
     Used by the cross-dataset matrix script to avoid loading train/val.
+
+    test_split — name of the subfolder to use as the test set.
+                 Defaults to "test". Pass "test_balanced" for the
+                 balanced test split of dataset_b_balanced.
     """
     _, eval_tf = _build_transforms(already_resized)
     nw = num_workers if num_workers is not None else _safe_num_workers()
-    test_ds = datasets.ImageFolder(os.path.join(data_dir, "test"), transform=eval_tf)
-    print(f"  Test set: {data_dir}/test  ({len(test_ds)} images)")
+    test_ds = datasets.ImageFolder(os.path.join(data_dir, test_split), transform=eval_tf)
+    print(f"  Test set: {data_dir}/{test_split}  ({len(test_ds)} images)")
     return DataLoader(
         test_ds, batch_size=batch_size, shuffle=False,
         num_workers=nw, pin_memory=True, persistent_workers=(nw > 0),
