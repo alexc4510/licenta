@@ -106,7 +106,7 @@ def save_single_eval(
     print(classification_report(labels, preds, target_names=ticks, zero_division=0))
 
     # CSV
-    csv_path = os.path.join(metrics_dir, f"{model_name}_test_metrics.csv")
+    csv_path = os.path.join(metrics_dir, f"{model_name}_{dataset_name}_test_metrics.csv")
     pd.DataFrame({k: [v] for k, v in m.items()}).to_csv(csv_path, index=False)
     print(f"  Metrics → {csv_path}")
 
@@ -118,7 +118,7 @@ def save_single_eval(
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
     ax.set_title(f"{model_name} — {dataset_name}")
-    cm_path = os.path.join(metrics_dir, f"{model_name}_confusion_matrix.png")
+    cm_path = os.path.join(metrics_dir, f"{model_name}_{dataset_name}_confusion_matrix.png")
     fig.savefig(cm_path, dpi=120, bbox_inches="tight")
     plt.close(fig)
     print(f"  Confusion matrix → {cm_path}")
