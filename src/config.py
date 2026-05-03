@@ -16,6 +16,7 @@ DATASETS: dict[str, str] = {
     "dataset_b":         os.path.join(DRIVE_ROOT, "datasets", "dataset_b"),
     "dataset_c":         os.path.join(DRIVE_ROOT, "datasets", "dataset_c"),
     "dataset_b_balanced": os.path.join(DRIVE_ROOT, "datasets", "dataset_b_balanced"),
+    "dataset_combined": os.path.join(DRIVE_ROOT, "datasets", "dataset_combined"),
 }
 
 # ── Persistent output roots ───────────────────────────────────────────────────
