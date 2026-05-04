@@ -137,11 +137,14 @@ def _copy_batch(
     src_paths: list[str],
     dst_folder: str,
     desc: str,
+    prefix: str = "",
 ) -> tuple[int, int]:
-    """Copy a list of source files to dst_folder. Returns (copied, skipped)."""
+    """Copy a list of source files to dst_folder. Returns (copied, skipped).
+    prefix is prepended to the filename to avoid collisions between datasets.
+    """
     copied = skipped = 0
     for src in tqdm(src_paths, desc=desc, unit="img"):
-        dst = os.path.join(dst_folder, Path(src).name)
+        dst = os.path.join(dst_folder, prefix + Path(src).name)
         if _copy_file(src, dst):
             copied += 1
         else:
@@ -213,7 +216,7 @@ def _build_split(
     c_real_selected = rng.sample(c_real_pool, min(targets["c_real"], len(c_real_pool)))
     c_real_paths = [str(p) for p in c_real_selected]
     print(f"\n  [C/real]  pool={len(c_real_pool):,}  selected={len(c_real_paths):,}")
-    c, s = _copy_batch(c_real_paths, dst_real, desc=f"  {split_name}/real [C]")
+    c, s = _copy_batch(c_real_paths, dst_real, desc=f"  {split_name}/real [C]", prefix="c_")
     total_copied += c; total_skipped += s
 
     # ── Dataset C — AI (random sample) ────────────────────────────────────────
@@ -221,7 +224,7 @@ def _build_split(
     c_ai_selected = rng.sample(c_ai_pool, min(targets["c_ai"], len(c_ai_pool)))
     c_ai_paths = [str(p) for p in c_ai_selected]
     print(f"\n  [C/ai]    pool={len(c_ai_pool):,}  selected={len(c_ai_paths):,}")
-    c, s = _copy_batch(c_ai_paths, dst_ai, desc=f"  {split_name}/ai   [C]")
+    c, s = _copy_batch(c_ai_paths, dst_ai, desc=f"  {split_name}/ai   [C]", prefix="c_")
     total_copied += c; total_skipped += s
 
     # ── Split summary ─────────────────────────────────────────────────────────
