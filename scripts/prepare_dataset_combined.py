@@ -114,7 +114,7 @@ def _list_pngs(folder: str) -> list[Path]:
     p = Path(folder)
     if not p.is_dir():
         return []
-    return sorted(p.glob("*.png"))
+    return sorted([p / f for f in os.listdir(folder) if f.lower().endswith(".png")])
 
 
 def _count(folder: str) -> int:
