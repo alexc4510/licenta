@@ -2,11 +2,33 @@
 """
 Evaluate the best ResNet-18 checkpoint on a single dataset's test split.
 
+Checkpoint resolution priority:
+    1. --experiment_name  — use this when --experiment_name was passed during training
+    2. --checkpoint_dataset — use this when training used the default dataset name
+    3. --dataset — fallback, assumes checkpoint and test dataset are the same
+
+Flag consistency:
+    --dog must match the flag used during training. A model trained with --dog
+    expects DoG-preprocessed inputs at inference time. Mixing --dog between
+    training and evaluation will produce meaningless results.
+
+Output files are saved to:
+    logs/<experiment_name or checkpoint_dataset>/<model>/
+        <model>_<dataset>_test_metrics.csv
+        <model>_<dataset>_confusion_matrix.png
+
 Usage (from project root):
+    # Standard evaluation (no DoG)
     python -m src.evaluation.evaluate_resnet18 --dataset dataset_b
-    python -m src.evaluation.evaluate_resnet18 --dataset ai_vs_human
+    python -m src.evaluation.evaluate_resnet18 --dataset dataset_b --checkpoint_dataset dataset_combined
+
+    # DoG evaluation (experiments 11/12)
+    python -m src.evaluation.evaluate_resnet18 --dataset dataset_b --experiment_name dataset_combined_dog --dog
+    python -m src.evaluation.evaluate_resnet18 --dataset dataset_c --experiment_name dataset_combined_dog --dog
+    python -m src.evaluation.evaluate_resnet18 --dataset ai_vs_human --experiment_name dataset_combined_dog --dog
+
+    # Balanced test split (experiments 7/8)
     python -m src.evaluation.evaluate_resnet18 --dataset dataset_b_balanced --test_split test_balanced
-    python -m src.evaluation.evaluate_resnet18 --dataset dataset_b_balanced --checkpoint_dataset dataset_b_balanced
 """
 
 from __future__ import annotations
@@ -38,11 +60,16 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--checkpoint_dataset", default=None, choices=list(DATASETS),
                    help="Dataset the model was trained on (determines checkpoint path). "
                         "Defaults to --dataset if not specified.")
+    p.add_argument("--experiment_name",    default=None,
+                   help="Override checkpoint/log path name. Use when --experiment_name "
+                        "was passed during training (e.g. dataset_combined_dog).")
     p.add_argument("--test_split",         default="test",
-                   help="Name of the test subfolder to use. Default: 'test'. "
-                        "Use 'test_balanced' for the balanced test split.")
+                   help="Name of the test subfolder to use. Default: 'test'.")
     p.add_argument("--batch_size",         type=int, default=BATCH_SIZE)
     p.add_argument("--not_resized",        action="store_true")
+    p.add_argument("--dog",                action="store_true",
+                   help="Apply Difference of Gaussians preprocessing. "
+                        "Must match the flag used during training.")
     return p.parse_args()
 
 
@@ -50,13 +77,13 @@ def main() -> None:
     args = _parse_args()
     _mount_drive()
 
-    # checkpoint_dataset defaults to dataset if not specified
-    ckpt_dataset = args.checkpoint_dataset or args.dataset
+    ckpt_dataset = args.experiment_name or args.checkpoint_dataset or args.dataset
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device={device}  |  model={MODEL_NAME}")
-    print(f"  checkpoint trained on: {ckpt_dataset}")
-    print(f"  evaluating on:         {args.dataset}/{args.test_split}")
+    print(f"  checkpoint path:   {ckpt_dataset}")
+    print(f"  evaluating on:     {args.dataset}/{args.test_split}")
+    print(f"  dog preprocessing: {args.dog}")
     if device == "cuda":
         torch.backends.cudnn.benchmark = True
 
@@ -65,6 +92,7 @@ def main() -> None:
         batch_size=args.batch_size,
         already_resized=not args.not_resized,
         test_split=args.test_split,
+        dog=args.dog,
     )
 
     model     = get_resnet18(num_classes=NUM_CLASSES).to(device)
@@ -79,7 +107,6 @@ def main() -> None:
     idx_to_class  = {v: k for k, v in test_loader.dataset.class_to_idx.items()}
     class_names   = [idx_to_class[i] for i in range(len(idx_to_class))]
 
-    # include test_split in the label so results don't overwrite each other
     label = args.dataset if args.test_split == "test" else f"{args.dataset}_{args.test_split}"
     save_single_eval(preds, labels, metrics_dir, MODEL_NAME, label, class_names=class_names)
 
