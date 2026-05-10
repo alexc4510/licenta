@@ -31,7 +31,6 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.colors
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -78,6 +77,11 @@ def _parse_args() -> argparse.Namespace:
         "--not_resized", action="store_true",
         help="Images are NOT pre-resized to 224 — apply Resize+CenterCrop at load time",
     )
+    p.add_argument(
+        "--save_metric", default="val_acc", choices=["val_acc", "val_f1"],
+        help="Metric used to select best checkpoint per cell (default: val_acc). "
+             "Use val_f1 when evaluating checkpoints from experiments 13/14.",
+    )
     return p.parse_args()
 
 
@@ -90,6 +94,7 @@ def _evaluate_cell(
     batch_size: int,
     already_resized: bool,
     device: str,
+    save_metric: str = "val_acc",
 ) -> dict[str, float] | None:
     """
     Load the best checkpoint for (train_dataset, model_name), run it against
@@ -108,7 +113,7 @@ def _evaluate_cell(
         return None
 
     try:
-        best_ckpt = find_best_checkpoint(checkpoint_dir, model_name)
+        best_ckpt = find_best_checkpoint(checkpoint_dir, model_name, metric=save_metric)
     except FileNotFoundError as exc:
         print(f"  [skip] {exc}")
         return None
@@ -154,6 +159,7 @@ def build_matrix(
     batch_size: int,
     already_resized: bool,
     device: str,
+    save_metric: str = "val_acc",
 ) -> dict[str, pd.DataFrame]:
     """
     Iterate over all (train_dataset × test_dataset) combinations.
@@ -174,6 +180,7 @@ def build_matrix(
             results[train_ds][test_ds] = _evaluate_cell(
                 train_ds, test_ds, model_name,
                 batch_size, already_resized, device,
+                save_metric=save_metric,
             )
 
     # Build one DataFrame per metric
@@ -284,8 +291,9 @@ def main() -> None:
         batch_size=args.batch_size,
         already_resized=not args.not_resized,
         device=device,
+        save_metric=args.save_metric,
     )
-    n = len(DATASETS)
+    n          = len(DATASETS)
     output_dir = os.path.join(LOGS_ROOT, "cross_dataset_matrix", args.model, f"{n}x{n}")
     save_matrix_outputs(matrices, output_dir, args.model)
 

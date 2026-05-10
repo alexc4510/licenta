@@ -70,6 +70,9 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--dog",                action="store_true",
                    help="Apply Difference of Gaussians preprocessing. "
                         "Must match the flag used during training.")
+    p.add_argument("--save_metric",        default="val_acc", choices=["val_acc", "val_f1"],
+                   help="Metric used to find best checkpoint (default: val_acc). "
+                        "Use val_f1 for experiments 13/14 which saved best on val_f1.")
     return p.parse_args()
 
 
@@ -97,7 +100,7 @@ def main() -> None:
 
     model     = get_resnet18(num_classes=NUM_CLASSES).to(device)
     ckpt_dir  = os.path.join(CHECKPOINTS_ROOT, ckpt_dataset, MODEL_NAME)
-    best_ckpt = find_best_checkpoint(ckpt_dir, MODEL_NAME)
+    best_ckpt = find_best_checkpoint(ckpt_dir, MODEL_NAME, metric=args.save_metric)
     ckpt      = torch.load(best_ckpt, map_location=device, weights_only=True)
     model.load_state_dict(ckpt["model_state_dict"])
     print(f"  Loaded epoch={ckpt['epoch']}  val_acc={ckpt['val_acc']:.4f}")
