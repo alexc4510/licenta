@@ -194,8 +194,10 @@ def main() -> None:
         print(f"{'=' * 55}")
         t0 = time.time()
 
-        # LR warmup step
-        if warmup is not None:
+        # LR warmup step — only apply during warmup window
+        # Guards against --resume starting at epoch > warmup_epochs
+        # which would set LR above base_lr incorrectly
+        if warmup is not None and epoch <= args.warmup_epochs:
             warmup.step(epoch)
 
         train_loss, train_acc = train_epoch(

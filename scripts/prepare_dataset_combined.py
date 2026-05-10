@@ -43,6 +43,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from google.colab import drive
+from PIL import Image
 from tqdm import tqdm
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
@@ -94,9 +95,15 @@ def _make_dirs() -> None:
     for split in ["train", "val"]:
         for label in ["ai", "real"]:
             os.makedirs(os.path.join(DST_DIR, split, label), exist_ok=True)
-    # Empty test/ai and test/real so get_dataloaders does not crash during training
+    # Dummy test split with one placeholder PNG per class so
+    # get_dataloaders does not crash during training (ImageFolder
+    # requires at least one valid image per class folder)
     for label in ["ai", "real"]:
-        os.makedirs(os.path.join(DST_DIR, "test", label), exist_ok=True)
+        folder = os.path.join(DST_DIR, "test", label)
+        os.makedirs(folder, exist_ok=True)
+        dummy_path = os.path.join(folder, "dummy.png")
+        if not os.path.exists(dummy_path):
+            Image.new("RGB", (224, 224), color=0).save(dummy_path)
 
 
 def _load_metadata() -> list[dict]:
