@@ -11,8 +11,8 @@ from src.config import IMAGE_SIZE, IMAGENET_MEAN, IMAGENET_STD
 
 def _safe_num_workers() -> int:
     """
-    Cap at 2 workers for Colab.  Drive I/O + more workers = frequent
-    DataLoader crashes.  Falls back to 0 if cpu_count is unavailable.
+    Cap at 2 workers for Colab. Drive I/O + more workers = frequent
+    DataLoader crashes. Falls back to 0 if cpu_count is unavailable.
     """
     return min(2, os.cpu_count() or 1)
 
@@ -25,12 +25,12 @@ class DifferenceOfGaussians:
     input image and returns their difference. The result highlights edges
     and high-frequency artefacts while suppressing low-frequency content.
 
-    This is applied AFTER ToTensor() so the input is a float tensor in [0, 1].
-    The output is clamped back to [0, 1] before normalization.
+    Applied AFTER ToTensor() so the input is a float tensor in [0, 1].
+    The output is normalized back to [0, 1] before ImageNet normalization.
 
     Parameters
     ----------
-    sigma_weak  : float
+    sigma_weak   : float
         Standard deviation of the weak (less blurry) Gaussian.
         Default: 1.0  →  kernel 7x7  (covers 3σ in each direction)
     sigma_strong : float
@@ -56,8 +56,7 @@ class DifferenceOfGaussians:
         weak   = self.blur_weak(tensor)
         strong = self.blur_strong(tensor)
         dog    = weak - strong
-        # Shift and scale to [0, 1] so ImageNet normalization remains meaningful
-        dog = dog - dog.min()
+        dog    = dog - dog.min()
         max_val = dog.max()
         if max_val > 0:
             dog = dog / max_val
@@ -68,31 +67,62 @@ class DifferenceOfGaussians:
                 f"sigma_weak={self.sigma_weak}, sigma_strong={self.sigma_strong})")
 
 
-def _build_transforms(already_resized: bool = True, dog: bool = False):
+def _build_transforms(
+    already_resized: bool = True,
+    dog: bool = False,
+    augment: bool = False,
+):
     """
     Return (train_transform, eval_transform).
 
-    already_resized=True  → images are exactly IMAGE_SIZExIMAGE_SIZE on disk.
-                            Skip Resize/CenterCrop — saves meaningful time.
-    already_resized=False → apply the standard Resize(256) → CenterCrop(224).
+    Parameters
+    ----------
+    already_resized : bool
+        True  → images are exactly IMAGE_SIZExIMAGE_SIZE on disk.
+                 Skip Resize/CenterCrop — saves meaningful I/O time.
+        False → apply the standard Resize(256) → CenterCrop(224).
 
-    dog=True  → apply Difference of Gaussians after ToTensor and before
-                normalization. Extracts edge/contour information.
-    dog=False → standard pipeline, no DoG preprocessing.
+    dog : bool
+        True  → apply Difference of Gaussians after ToTensor and before
+                 normalization. Extracts edge/contour information.
+                 Must be used consistently in both training and evaluation.
+        False → standard pipeline, no DoG preprocessing.
+
+    augment : bool
+        True  → apply extended augmentation during training:
+                 random horizontal flip (always applied regardless of this flag)
+                 + ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)
+                 + RandomRotation(degrees=10)
+                 + RandomErasing(p=0.2, scale=(0.02, 0.1))
+                 Used for experiments 13/14 to prevent overfitting and
+                 discourage dataset-specific shortcut learning.
+        False → only random horizontal flip (behaviour of experiments 1-12).
+
+    Note: RandomErasing is applied after ToTensor since it operates on tensors.
+    All spatial augmentations are applied before ToTensor.
     """
     spatial = [] if already_resized else [
         transforms.Resize(256),
         transforms.CenterCrop(IMAGE_SIZE),
     ]
 
+    spatial_aug = [transforms.RandomHorizontalFlip()]
+    if augment:
+        spatial_aug += [
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.RandomRotation(degrees=10),
+        ]
+
     to_tensor = [transforms.ToTensor()]
 
     dog_transform = [DifferenceOfGaussians(sigma_weak=1.0, sigma_strong=2.0)] if dog else []
 
+    tensor_aug = [transforms.RandomErasing(p=0.2, scale=(0.02, 0.1))] if augment else []
+
     normalise = [transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)]
 
     train_tf = transforms.Compose(
-        spatial + [transforms.RandomHorizontalFlip()] + to_tensor + dog_transform + normalise
+        spatial + spatial_aug + to_tensor + dog_transform + tensor_aug + normalise
     )
     eval_tf = transforms.Compose(
         spatial + to_tensor + dog_transform + normalise
@@ -106,6 +136,7 @@ def get_dataloaders(
     already_resized: bool = True,
     num_workers: int | None = None,
     dog: bool = False,
+    augment: bool = False,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """
     Build train / val / test DataLoaders from an ImageFolder layout:
@@ -116,18 +147,21 @@ def get_dataloaders(
             test/   ai/  real/
 
     ImageFolder assigns labels alphabetically → ai=0, real=1.
-    This is consistent across all our datasets so no remapping is needed.
+    This is consistent across all datasets so no remapping is needed.
 
-    dog=True applies Difference of Gaussians preprocessing to all splits.
+    Parameters
+    ----------
+    dog     : apply Difference of Gaussians preprocessing to all splits.
+    augment : apply extended augmentation to the train split only.
+              Eval and test splits are never augmented beyond DoG.
     """
-    train_tf, eval_tf = _build_transforms(already_resized, dog=dog)
+    train_tf, eval_tf = _build_transforms(already_resized, dog=dog, augment=augment)
     nw = num_workers if num_workers is not None else _safe_num_workers()
 
     train_ds = datasets.ImageFolder(os.path.join(data_dir, "train"), transform=train_tf)
     val_ds   = datasets.ImageFolder(os.path.join(data_dir, "val"),   transform=eval_tf)
     test_ds  = datasets.ImageFolder(os.path.join(data_dir, "test"),  transform=eval_tf)
 
-    # Sanity check: label mapping must be identical across splits
     assert train_ds.class_to_idx == val_ds.class_to_idx == test_ds.class_to_idx, (
         f"class_to_idx mismatch between splits in {data_dir}.\n"
         f"  train={train_ds.class_to_idx}  val={val_ds.class_to_idx}  test={test_ds.class_to_idx}"
@@ -144,11 +178,15 @@ def get_dataloaders(
     val_loader   = DataLoader(val_ds,   shuffle=False, **loader_kwargs)
     test_loader  = DataLoader(test_ds,  shuffle=False, **loader_kwargs)
 
-    dog_str = "  [DoG preprocessing: ON]" if dog else ""
+    flags = []
+    if dog:     flags.append("DoG: ON")
+    if augment: flags.append("augment: ON")
+    flag_str = f"  [{', '.join(flags)}]" if flags else ""
+
     print(
         f"Loaded: {data_dir}\n"
         f"  train={len(train_ds):>6}  val={len(val_ds):>6}  test={len(test_ds):>6}"
-        f"  |  class_to_idx={train_ds.class_to_idx}  num_workers={nw}{dog_str}"
+        f"  |  class_to_idx={train_ds.class_to_idx}  num_workers={nw}{flag_str}"
     )
     return train_loader, val_loader, test_loader
 
@@ -163,15 +201,19 @@ def get_test_loader(
 ) -> DataLoader:
     """
     Convenience function that returns only the test DataLoader.
-    Used by the cross-dataset matrix script to avoid loading train/val.
+    Used by evaluate scripts and cross_dataset_matrix.py.
 
-    test_split — name of the subfolder to use as the test set.
-                 Defaults to "test". Pass "test_balanced" for the
+    No augmentation is ever applied to test data — only DoG if specified.
+
+    Parameters
+    ----------
+    test_split : name of the subfolder to use as the test set.
+                 Defaults to 'test'. Pass 'test_balanced' for the
                  balanced test split of dataset_b_balanced.
-
-    dog=True applies Difference of Gaussians preprocessing.
+    dog        : apply Difference of Gaussians preprocessing.
+                 Must match the flag used during training.
     """
-    _, eval_tf = _build_transforms(already_resized, dog=dog)
+    _, eval_tf = _build_transforms(already_resized, dog=dog, augment=False)
     nw = num_workers if num_workers is not None else _safe_num_workers()
     test_ds = datasets.ImageFolder(os.path.join(data_dir, test_split), transform=eval_tf)
     dog_str = "  [DoG: ON]" if dog else ""
