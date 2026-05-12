@@ -444,7 +444,10 @@ def load_latest_checkpoint(
 
     latest = candidates[-1]
     try:
-        ckpt = torch.load(latest, map_location=device, weights_only=True)
+        try:
+            ckpt = torch.load(latest, map_location=device, weights_only=True)
+        except Exception:
+            ckpt = torch.load(latest, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model_state_dict"])
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         epoch = int(ckpt["epoch"])
