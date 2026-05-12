@@ -411,7 +411,10 @@ def find_best_checkpoint(
 
     for p in candidates:
         try:
-            ckpt = torch.load(p, map_location="cpu", weights_only=True)
+            try:
+                ckpt = torch.load(p, map_location="cpu", weights_only=True)
+            except Exception:
+                ckpt = torch.load(p, map_location="cpu", weights_only=False)
             val  = float(ckpt.get(metric, ckpt.get("val_acc", -1.0)))
             if val > best_val:
                 best_val  = val
