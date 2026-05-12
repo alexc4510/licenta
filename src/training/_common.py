@@ -352,6 +352,8 @@ def save_checkpoint(
     checkpoint_dir: str,
     model_name: str,
     val_f1: float = -1.0,
+    early_stopping_counter: int = 0,
+    early_stopping_best: float = -1.0,
 ) -> str:
     """
     Save a full checkpoint that includes val_acc, val_f1 and epoch metadata.
@@ -369,11 +371,13 @@ def save_checkpoint(
     path = os.path.join(checkpoint_dir, f"{model_name}_epoch_{epoch:02d}.pth")
     torch.save(
         {
-            "epoch":                epoch,
-            "val_acc":              val_acc,
-            "val_f1":               val_f1,
-            "model_state_dict":     model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
+            "epoch":                    epoch,
+            "val_acc":                  val_acc,
+            "val_f1":                   val_f1,
+            "early_stopping_counter":   early_stopping_counter,
+            "early_stopping_best":      early_stopping_best,
+            "model_state_dict":         model.state_dict(),
+            "optimizer_state_dict":     optimizer.state_dict(),
         },
         path,
     )
@@ -440,7 +444,7 @@ def load_latest_checkpoint(
     candidates = sorted(Path(checkpoint_dir).glob(f"{model_name}_epoch_*.pth"))
     if not candidates:
         print("  No checkpoint found — starting from scratch.")
-        return 1
+        return 1, {"counter": 0, "best": -1.0}
 
     latest = candidates[-1]
     try:
@@ -452,11 +456,16 @@ def load_latest_checkpoint(
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         epoch = int(ckpt["epoch"])
         print(f"  Resumed from: {latest.name}  "
-              f"(epoch={epoch}  val_acc={ckpt.get('val_acc', float('nan')):.4f})")
-        return epoch + 1
+              f"(epoch={epoch}  val_acc={ckpt.get('val_acc', float('nan')):.4f}  "
+              f"val_f1={ckpt.get('val_f1', float('nan')):.4f})")
+        es_state = {
+            "counter": ckpt.get("early_stopping_counter", 0),
+            "best":    ckpt.get("early_stopping_best", -1.0),
+        }
+        return epoch + 1, es_state
     except Exception as exc:
         print(f"  [warn] Could not load checkpoint {latest.name}: {exc} — starting from scratch.")
-        return 1
+        return 1, {"counter": 0, "best": -1.0}
 
 
 # ── Training artifacts ────────────────────────────────────────────────────────

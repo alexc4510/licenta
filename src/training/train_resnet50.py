@@ -176,10 +176,15 @@ def main() -> None:
     # Early stopping
     early_stopper = EarlyStopping(patience=args.early_stopping) \
                     if args.early_stopping > 0 else None
+    if early_stopper is not None and args.resume:
+        early_stopper.counter    = es_state["counter"]
+        early_stopper.best       = es_state["best"]
+        print(f"  [EarlyStopping] Restored: counter={early_stopper.counter}  best={early_stopper.best:.4f}")
 
     start_epoch = 1
+    es_state    = {"counter": 0, "best": -1.0}
     if args.resume:
-        start_epoch = load_latest_checkpoint(checkpoint_dir, MODEL_NAME, model, optimizer, device)
+        start_epoch, es_state = load_latest_checkpoint(checkpoint_dir, MODEL_NAME, model, optimizer, device)
 
     history = {
         "epoch": [], "train_loss": [], "train_acc": [],
@@ -226,8 +231,13 @@ def main() -> None:
         history["val_acc"].append(val_acc)
         history["val_f1"].append(val_f1)
 
+        es_counter = early_stopper.counter if early_stopper is not None else 0
+        es_best    = early_stopper.best    if early_stopper is not None else -1.0
         ckpt = save_checkpoint(
-            model, optimizer, epoch, val_acc, checkpoint_dir, MODEL_NAME, val_f1=val_f1
+            model, optimizer, epoch, val_acc, checkpoint_dir, MODEL_NAME,
+            val_f1=val_f1,
+            early_stopping_counter=es_counter,
+            early_stopping_best=es_best,
         )
 
         # Track best checkpoint based on chosen metric
