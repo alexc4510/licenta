@@ -102,9 +102,12 @@ def main() -> None:
     model     = get_resnet50(num_classes=NUM_CLASSES).to(device)
     ckpt_dir  = os.path.join(CHECKPOINTS_ROOT, ckpt_dataset, MODEL_NAME)
     best_ckpt = find_best_checkpoint(ckpt_dir, MODEL_NAME, metric=args.save_metric)
-    ckpt      = torch.load(best_ckpt, map_location=device, weights_only=True)
+    try:
+        ckpt = torch.load(best_ckpt, map_location=device, weights_only=True)
+    except Exception:
+        ckpt = torch.load(best_ckpt, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
-    print(f"  Loaded epoch={ckpt['epoch']}  val_acc={ckpt['val_acc']:.4f}")
+    print(f"  Loaded epoch={ckpt['epoch']}  val_acc={ckpt['val_acc']:.4f}  val_f1={ckpt.get('val_f1', float('nan')):.4f}")
 
     preds, labels = run_inference(model, test_loader, device)
     metrics_dir   = os.path.join(LOGS_ROOT, ckpt_dataset, MODEL_NAME)
