@@ -45,6 +45,8 @@ import seaborn as sns
 import torch
 from google.colab import drive
 
+from sklearn.metrics import classification_report
+
 from src.config import BATCH_SIZE, CHECKPOINTS_ROOT, DATASETS, LOGS_ROOT, NUM_CLASSES
 from src.data.dataset import get_generator_test_loader
 from src.evaluation._common import compute_metrics, print_metrics, run_inference
@@ -136,6 +138,9 @@ def main() -> None:
         preds, labels = run_inference(model, loader, device)
         metrics = compute_metrics(preds, labels)
         print_metrics(metrics, args.model, args.experiment_name, f"dataset_b [{gen_name}]")
+
+        print(f"\n  Per-class report:")
+        print(classification_report(labels, preds, target_names=["ai", "real"], zero_division=0))
 
         results.append({
             "generator":  gen_name,
