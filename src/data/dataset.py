@@ -223,3 +223,118 @@ def get_test_loader(
         num_workers=nw, pin_memory=True, persistent_workers=(nw > 0),
         prefetch_factor=2 if nw > 0 else None,
     )
+
+
+# ── Per-generator evaluation ───────────────────────────────────────────────────
+
+class GeneratorSubsetDataset(torch.utils.data.Dataset):
+    """
+    A lightweight Dataset built from an explicit list of (path, label) pairs.
+    Used for per-generator evaluation of Dataset B test splits.
+
+    Bypasses ImageFolder — no filesystem scanning required. Reads directly
+    from the Dataset B metadata CSV, filtered by label_b (generator id).
+
+    Labels follow the same convention as ImageFolder alphabetical ordering:
+        ai=0, real=1
+    """
+
+    def __init__(self, samples: list[tuple[str, int]], transform=None):
+        """
+        Parameters
+        ----------
+        samples   : list of (absolute_image_path, label) tuples
+                    label: 0=ai, 1=real  (matches ImageFolder convention)
+        transform : torchvision transform to apply to each image
+        """
+        self.samples   = samples
+        self.transform = transform
+        self.class_to_idx = {"ai": 0, "real": 1}
+        self.targets   = [label for _, label in samples]
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        path, label = self.samples[idx]
+        from PIL import Image
+        img = Image.open(path).convert("RGB")
+        if self.transform is not None:
+            img = self.transform(img)
+        return img, label
+
+
+def get_generator_test_loader(
+    dataset_b_dir: str,
+    metadata_csv: str,
+    generator_id: int,
+    batch_size: int = 128,
+    already_resized: bool = True,
+    num_workers: int | None = None,
+    dog: bool = False,
+) -> tuple["torch.utils.data.DataLoader", int, int]:
+    """
+    Build a test DataLoader for a single Dataset B generator subset.
+
+    Includes all real images from the test split paired with all AI images
+    from the specified generator (label_b == generator_id).
+
+    Parameters
+    ----------
+    dataset_b_dir : path to the dataset_b root directory on Drive
+    metadata_csv  : path to dataset_b/metadata.csv
+    generator_id  : label_b value (1=SD2.1, 2=SDXL, 3=SD3, 4=DALL-E3, 5=MidJourney_v6)
+    already_resized : images are pre-resized to 224x224 on disk
+    dog           : apply Difference of Gaussians preprocessing
+
+    Returns
+    -------
+    (loader, n_real, n_ai) — DataLoader and counts for logging
+    """
+    import pandas as pd
+
+    GENERATOR_NAMES = {
+        1: "SD2.1",
+        2: "SDXL",
+        3: "SD3",
+        4: "DALL-E3",
+        5: "MidJourney_v6",
+    }
+
+    meta = pd.read_csv(metadata_csv)
+    test_meta = meta[meta["split"] == "test"]
+
+    # Real images — all real from test split (label_a=0)
+    real_records = test_meta[test_meta["label_a"] == 0]
+    # AI images — only from the specified generator (label_a=1, label_b=generator_id)
+    ai_records   = test_meta[(test_meta["label_a"] == 1) & (test_meta["label_b"] == generator_id)]
+
+    import os
+    samples = []
+    for _, row in real_records.iterrows():
+        path = os.path.join(dataset_b_dir, "test", "real", row["filename"])
+        if os.path.exists(path):
+            samples.append((path, 1))  # real=1
+
+    for _, row in ai_records.iterrows():
+        path = os.path.join(dataset_b_dir, "test", "ai", row["filename"])
+        if os.path.exists(path):
+            samples.append((path, 0))  # ai=0
+
+    n_real = sum(1 for _, l in samples if l == 1)
+    n_ai   = sum(1 for _, l in samples if l == 0)
+
+    gen_name = GENERATOR_NAMES.get(generator_id, f"generator_{generator_id}")
+    print(f"  Generator subset: {gen_name}  |  real={n_real}  AI={n_ai}  total={len(samples)}")
+
+    _, eval_tf = _build_transforms(already_resized, dog=dog, augment=False)
+    nw = num_workers if num_workers is not None else _safe_num_workers()
+
+    dataset = GeneratorSubsetDataset(samples, transform=eval_tf)
+    loader  = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=False,
+        num_workers=nw, pin_memory=True,
+        persistent_workers=(nw > 0),
+        prefetch_factor=2 if nw > 0 else None,
+    )
+    return loader, n_real, n_ai
